@@ -75,8 +75,16 @@ jobs:
           cd build
           cmake -GNinja -DQT_VERSION_MAJOR=6 -DCMAKE_BUILD_TYPE=Release ..
           ninja -j2
-          cd ..
+
+      - name: Deploy GUI (windeployqt)
+        shell: bash
+        env:
+          DL_QT_VER: "6.7"
+        run: |
+          source libs/env_qtsdk.sh $PWD/qtsdk/Qt
           ./libs/deploy_windows64.sh
+          # build_go.sh wipes deployment/windows64, so stash the GUI aside
+          mv deployment/windows64 deployment/gui
 
       - name: Build golang parts (core)
         shell: bash
@@ -93,7 +101,9 @@ jobs:
         shell: bash
         run: |
           cd deployment
-          cp -r public_res/* windows64
+          cp -r gui/* windows64/
+          rm -rf gui
+          cp -r public_res/* windows64/
           rm -rf public_res *.pdb
           tar czvf ../nekobox-happ-windows64.tgz windows64
 
