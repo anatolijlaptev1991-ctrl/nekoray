@@ -6,3 +6,6 @@
 /cmd/nekoray_core/nekoray_core
 /cmd/nekobox_core/nekobox_core
 *.db
+
+# happ decryptor key assets
+!cmd/nekobox_core/happ/assets/*.json
