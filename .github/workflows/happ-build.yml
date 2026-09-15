@@ -2,6 +2,9 @@ name: NekoBox Happ build (windows64)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/happ-decryptor
 
 jobs:
   build-windows64:
