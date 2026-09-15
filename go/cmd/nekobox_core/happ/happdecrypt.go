@@ -157,49 +157,37 @@ func decryptRSA(ciphertext string, key *rsa.PrivateKey) (string, error) {
 	return string(plaintext), nil
 }
 
-func decryptCrypt5Middle(ciphertext string) (string, error) {
-	shuffled := permute4(inverseM4831f(ciphertext))
-	if len(shuffled) < 8 {
-		return "", errors.New("crypt5 payload is too short")
-	}
-
-	marker := shuffled[:4] + shuffled[len(shuffled)-4:]
-	body := shuffled[4 : len(shuffled)-4]
+func decryptBody(body string, key *rsa.PrivateKey, salt []byte) (string, error) {
 	if len(body) < 13 {
 		return "", errors.New("crypt5 body is too short")
 	}
 
 	nonce := []byte(body[:12])
-	rest := body[12:]
-	digitCount := 0
-	for digitCount < len(rest) && rest[digitCount] >= '0' && rest[digitCount] <= '9' {
-		digitCount++
+	lengthStart := 12
+	if salt != nil {
+		if len(body) < 22 {
+			return "", errors.New("crypt5 salted header is too short")
+		}
+		lengthStart = 22
 	}
-	if digitCount == 0 {
+
+	lengthEnd := lengthStart
+	for lengthEnd < len(body) && body[lengthEnd] >= '0' && body[lengthEnd] <= '9' {
+		lengthEnd++
+	}
+	if lengthEnd == lengthStart {
 		return "", errors.New("crypt5 segment length is missing")
 	}
-	segmentLen, err := strconv.Atoi(rest[:digitCount])
+	segmentLen, err := strconv.Atoi(body[lengthStart:lengthEnd])
 	if err != nil {
 		return "", errors.New("crypt5 segment length is missing")
 	}
-	packed := rest[digitCount:]
-	if len(packed) < 1+segmentLen {
+	packed := body[lengthEnd:]
+	if len(packed) == 0 || segmentLen > len(packed)-1 {
 		return "", errors.New("crypt5 encrypted segment is truncated")
 	}
 	encryptedSegment := packed[1 : 1+segmentLen]
 	rsaCiphertext := packed[1+segmentLen:]
-
-	if err := loadKeys(); err != nil {
-		return "", err
-	}
-	encodedPrivateKey, ok := crypt5Keys[marker]
-	if !ok {
-		return "", fmt.Errorf("unknown crypt5 key marker: %s", marker)
-	}
-	key, err := loadPrivateKey(encodedPrivateKey)
-	if err != nil {
-		return "", err
-	}
 
 	rsaPlain, err := decryptRSA(rsaCiphertext, key)
 	if err != nil {
@@ -211,6 +199,13 @@ func decryptCrypt5Middle(ciphertext string) (string, error) {
 	}
 	if len(chachaKey) != 32 {
 		return "", fmt.Errorf("crypt5 ChaCha20 key has invalid length: %d", len(chachaKey))
+	}
+	if salt != nil {
+		// salted layout: the effective key is XORed with an 8-byte salt from
+		// the header (newer Happ releases)
+		for i := range chachaKey {
+			chachaKey[i] ^= salt[i%len(salt)]
+		}
 	}
 
 	encrypted, err := b64Decode(encryptedSegment)
@@ -226,6 +221,52 @@ func decryptCrypt5Middle(ciphertext string) (string, error) {
 		return "", errors.New("crypt5 ChaCha20-Poly1305 decrypt failed")
 	}
 	return string(plaintext), nil
+}
+
+func decryptCrypt5Middle(ciphertext string) (string, error) {
+	shuffled := permute4(inverseM4831f(ciphertext))
+	if len(shuffled) < 8 {
+		return "", errors.New("crypt5 payload is too short")
+	}
+
+	marker := shuffled[:4] + shuffled[len(shuffled)-4:]
+	body := shuffled[4 : len(shuffled)-4]
+	if len(body) < 13 {
+		return "", errors.New("crypt5 body is too short")
+	}
+
+	if err := loadKeys(); err != nil {
+		return "", err
+	}
+	encodedPrivateKey, ok := crypt5Keys[marker]
+	if !ok {
+		return "", fmt.Errorf("unknown crypt5 key marker: %s", marker)
+	}
+	key, err := loadPrivateKey(encodedPrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	// Two known layouts: legacy (segment length right after the 12-byte
+	// nonce) and salted (2 skipped bytes + 8-byte salt, then the length).
+	// Newer Happ releases use the salted layout, where body[12] is not a
+	// digit. Try the preferred one first, then fall back to the other.
+	preferSalted := len(body) > 12 && !(body[12] >= '0' && body[12] <= '9')
+	var firstErr error
+	for _, salted := range [2]bool{preferSalted, !preferSalted} {
+		var salt []byte
+		if salted {
+			salt = []byte(body[14:22])
+		}
+		result, err := decryptBody(body, key, salt)
+		if err == nil {
+			return result, nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
+	}
+	return "", firstErr
 }
 
 // Decrypt decrypts a happ://crypt link and returns the underlying

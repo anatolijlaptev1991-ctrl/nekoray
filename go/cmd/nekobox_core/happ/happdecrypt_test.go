@@ -54,6 +54,42 @@ func buildCrypt5Link(t *testing.T, marker, encodedPrivateKey, msg string) string
 	return "happ://crypt5/" + permute4(shuffled)
 }
 
+// buildSaltedCrypt5Link mirrors the newer salted layout: 2 filler bytes and
+// an 8-byte salt sit between the nonce and the length, and the salt is XORed
+// into the ChaCha20 key. Verified against a real provider link.
+func buildSaltedCrypt5Link(t *testing.T, marker, encodedPrivateKey, msg string) string {
+	t.Helper()
+	key, err := loadPrivateKey(encodedPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chachaKey := sha256Sum([]byte("salted-" + marker))
+	salt := []byte(marker[:4] + "salt") // 8 bytes
+	nonce := []byte(marker + "salt")    // 12 bytes
+
+	finalB64 := base64StdEncode([]byte(msg))
+	chachaPlain := m4842j(finalB64)
+	encrypted, err := chachaSeal(chachaKey, nonce, []byte(chachaPlain))
+	if err != nil {
+		t.Fatal(err)
+	}
+	encryptedSegment := base64StdEncode(encrypted)
+
+	saltedKey := append([]byte{}, chachaKey...)
+	for i := range saltedKey {
+		saltedKey[i] ^= salt[i%len(salt)]
+	}
+	rsaPlain := m4842j(base64StdEncode(saltedKey))
+	rsaCiphertext, err := rsa.EncryptPKCS1v15(rand.Reader, &key.PublicKey, []byte(rsaPlain))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	body := string(nonce) + "QZ" + string(salt) + itoa(len(encryptedSegment)) + "f" + encryptedSegment + base64StdEncode(rsaCiphertext)
+	shuffled := marker[:4] + body + marker[4:]
+	return "happ://crypt5/" + permute4(shuffled)
+}
+
 func TestVerifiedVectors(t *testing.T) {
 	if len(verifiedVectors) == 0 {
 		t.Fatal("no verified vectors embedded")
@@ -91,6 +127,19 @@ func TestSyntheticAllKeys(t *testing.T) {
 		link := buildCrypt5Link(t, marker, encodedKey, want)
 		if got, err := Decrypt(link); err != nil || got != want {
 			t.Errorf("crypt5 marker %s: got %q, %v (want %q)", marker, got, err, want)
+		}
+	}
+}
+
+func TestSyntheticSaltedAllKeys(t *testing.T) {
+	if err := loadKeys(); err != nil {
+		t.Fatal(err)
+	}
+	for marker, encodedKey := range crypt5Keys {
+		want := "https://sub.example.com/salted-" + marker
+		link := buildSaltedCrypt5Link(t, marker, encodedKey, want)
+		if got, err := Decrypt(link); err != nil || got != want {
+			t.Errorf("salted crypt5 marker %s: got %q, %v (want %q)", marker, got, err, want)
 		}
 	}
 }
