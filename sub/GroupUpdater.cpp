@@ -2,6 +2,8 @@
 #include "fmt/includes.h"
 #include "fmt/Preset.hpp"
 #include "main/HTTPRequestHelper.hpp"
+#include "main/HappLink.hpp"
+#include "main/NekoGui_Utils.hpp"
 
 #include "GroupUpdater.hpp"
 
@@ -466,6 +468,26 @@ namespace NekoGui_sub {
         auto content = str.trimmed();
         bool asURL = false;
         bool createNewGroup = false;
+
+        // Encrypted Happ link: decrypt in the background, then re-enter the
+        // normal flow with the decrypted content.
+        if (NekoGui_Happ::IsHappLink(content)) {
+            runOnNewThread([=] {
+                QString err;
+                auto decrypted = NekoGui_Happ::HappDecryptLink(content, &err);
+                runOnUiThread([=] {
+                    if (decrypted.isEmpty()) {
+                        MessageBoxWarning(QObject::tr("Decrypt Happ link"),
+                                          err.isEmpty() ? QObject::tr("Decryption failed") : err);
+                        if (finish != nullptr) finish();
+                        return;
+                    }
+                    MW_show_log(QObject::tr("Happ link decrypted") + ": " + decrypted);
+                    AsyncUpdate(decrypted, _sub_gid, finish);
+                });
+            });
+            return;
+        }
 
         if (_sub_gid < 0 && (content.startsWith("http://") || content.startsWith("https://"))) {
             auto items = QStringList{

@@ -126,6 +126,7 @@ set(PROJECT_SOURCES
         main/NekoGui.cpp
         main/NekoGui_Utils.cpp
         main/HTTPRequestHelper.cpp
+        main/HappLink.cpp
 
         3rdparty/base64.cpp
         3rdparty/qrcodegen.cpp
@@ -167,6 +168,9 @@ set(PROJECT_SOURCES
         ui/mainwindow.cpp
         ui/mainwindow.h
         ui/mainwindow.ui
+
+        ui/dialog_happ_decrypt.h
+        ui/dialog_happ_decrypt.cpp
 
         ui/edit/dialog_edit_profile.h
         ui/edit/dialog_edit_profile.cpp

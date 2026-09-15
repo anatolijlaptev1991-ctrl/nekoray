@@ -12,6 +12,7 @@
 #include "ui/Icon.hpp"
 #include "ui/edit/dialog_edit_profile.h"
 #include "ui/dialog_basic_settings.h"
+#include "ui/dialog_happ_decrypt.h"
 #include "ui/dialog_manage_groups.h"
 #include "ui/dialog_manage_routes.h"
 #include "ui/dialog_vpn_settings.h"
@@ -1340,6 +1341,12 @@ void MainWindow::on_menu_scan_qr_triggered() {
         NekoGui_sub::groupUpdater->AsyncUpdate(text);
     }
 #endif
+}
+
+void MainWindow::on_menu_happ_decrypt_triggered() {
+    auto dialog = new DialogHappDecrypt(this);
+    connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
+    dialog->show();
 }
 
 void MainWindow::on_menu_clear_test_result_triggered() {

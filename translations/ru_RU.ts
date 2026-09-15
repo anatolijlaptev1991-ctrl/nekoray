@@ -451,6 +451,53 @@
     </message>
 </context>
 <context>
+    <name>DialogHappDecrypt</name>
+    <message>
+        <source>Decrypt Happ link</source>
+        <translation>Расшифровать Happ ключ</translation>
+    </message>
+    <message>
+        <source>Paste an encrypted Happ link (happ://crypt...):</source>
+        <translation>Вставьте зашифрованный Happ-ключ (happ://crypt...):</translation>
+    </message>
+    <message>
+        <source>Decrypt</source>
+        <translation>Расшифровать</translation>
+    </message>
+    <message>
+        <source>Decrypted result:</source>
+        <translation>Результат расшифровки:</translation>
+    </message>
+    <message>
+        <source>The decrypted link will appear here</source>
+        <translation>Здесь появится расшифрованная ссылка</translation>
+    </message>
+    <message>
+        <source>Looks like a subscription URL. "Add to NekoBox" will offer to create a subscription.</source>
+        <translation>Похоже на URL подписки. Кнопка "Добавить в NekoBox" предложит создать подписку.</translation>
+    </message>
+    <message>
+        <source>Looks like one or more proxy links.</source>
+        <translation>Похоже на одну или несколько ссылок прокси.</translation>
+    </message>
+    <message>
+        <source>Add to NekoBox</source>
+        <translation>Добавить в NekoBox</translation>
+    </message>
+    <message>
+        <source>Copy result</source>
+        <translation>Скопировать результат</translation>
+    </message>
+    <message>
+        <source>Copied!</source>
+        <translation>Скопировано!</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Закрыть</translation>
+    </message>
+</context>
+<context>
     <name>DialogHotkey</name>
     <message>
         <source>Hotkey</source>
@@ -1074,6 +1121,10 @@ https://matsuridayo.github.io/n-configuration/#vpn-tun</translation>
 <context>
     <name>MainWindow</name>
     <message>
+        <source>Decrypt Happ link</source>
+        <translation>Расшифровать Happ ключ</translation>
+    </message>
+    <message>
         <source>Program</source>
         <translation>Программа</translation>
     </message>
@@ -1523,6 +1574,34 @@ End: %2</source>
 </context>
 <context>
     <name>QObject</name>
+    <message>
+        <source>Decrypt Happ link</source>
+        <translation>Расшифровать Happ ключ</translation>
+    </message>
+    <message>
+        <source>Decryption failed</source>
+        <translation>Не удалось расшифровать</translation>
+    </message>
+    <message>
+        <source>Happ link decrypted</source>
+        <translation>Happ-ключ расшифрован</translation>
+    </message>
+    <message>
+        <source>Not an encrypted Happ link</source>
+        <translation>Это не зашифрованный Happ-ключ</translation>
+    </message>
+    <message>
+        <source>Could not run the decryptor (nekobox_core)</source>
+        <translation>Не удалось запустить дешифратор (nekobox_core)</translation>
+    </message>
+    <message>
+        <source>Unexpected decryptor output</source>
+        <translation>Неожиданный ответ дешифратора</translation>
+    </message>
+    <message>
+        <source>Decryption returned an empty result</source>
+        <translation>Дешифратор вернул пустой результат</translation>
+    </message>
     <message>
         <source>Core not found: %1</source>
         <translation>Ядро не найдено: %1</translation>

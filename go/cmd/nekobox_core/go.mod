@@ -6,6 +6,7 @@ require (
 	github.com/matsuridayo/libneko v1.0.0 // replaced
 	github.com/sagernet/sing-box v1.0.0 // replaced
 	// github.com/sagernet/sing-dns v1.0.0 // indirect; replaced
+	golang.org/x/crypto v0.23.0
 	grpc_server v1.0.0
 )
 
@@ -76,7 +77,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
-	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20240416160154-fe59bbe5cc7f // indirect
 	golang.org/x/mod v0.18.0 // indirect
 	golang.org/x/net v0.25.0 // indirect

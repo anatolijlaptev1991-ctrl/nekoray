@@ -503,6 +503,7 @@
     <addaction name="actionShow_window"/>
     <addaction name="menu_add_from_clipboard2"/>
     <addaction name="menu_scan_qr"/>
+    <addaction name="menu_happ_decrypt"/>
     <addaction name="separator"/>
     <addaction name="actionStart_with_system"/>
     <addaction name="actionRemember_last_proxy"/>
@@ -716,6 +717,11 @@
   <action name="menu_scan_qr">
    <property name="text">
     <string>Scan QR Code</string>
+   </property>
+  </action>
+  <action name="menu_happ_decrypt">
+   <property name="text">
+    <string>Decrypt Happ link</string>
    </property>
   </action>
   <action name="menu_spmode_system_proxy">
