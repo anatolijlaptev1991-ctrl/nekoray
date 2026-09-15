@@ -105,10 +105,13 @@ jobs:
           rm -rf gui
           cp -r public_res/* windows64/
           rm -rf public_res *.pdb
-          tar czvf ../nekobox-happ-windows64.tgz windows64
+          # self-updater expects a zip with top-level folder "nekoray"
+          source ../libs/env_deploy.sh
+          mv windows64 nekoray
+          7z a "../${version_standalone}-windows64.zip" nekoray
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: nekobox-happ-windows64
-          path: nekobox-happ-windows64.tgz
+          path: nekoray-*-windows64.zip
