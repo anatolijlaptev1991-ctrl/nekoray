@@ -3,7 +3,6 @@
 #include "fmt/Preset.hpp"
 #include "main/HTTPRequestHelper.hpp"
 #include "main/HappLink.hpp"
-#include "main/NekoGui_Utils.hpp"
 
 #include "GroupUpdater.hpp"
 
@@ -482,7 +481,7 @@ namespace NekoGui_sub {
                         if (finish != nullptr) finish();
                         return;
                     }
-                    MW_show_log(QObject::tr("Happ link decrypted") + ": " + decrypted);
+                    if (MW_show_log) MW_show_log(QObject::tr("Happ link decrypted") + ": " + decrypted);
                     AsyncUpdate(decrypted, _sub_gid, finish);
                 });
             });

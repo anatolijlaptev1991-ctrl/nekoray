@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - feature/happ-decryptor
+    paths-ignore:
+      - "**.md"
 
 jobs:
   build-windows64:
