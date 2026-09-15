@@ -10,7 +10,7 @@ import (
 
 	"grpc_server"
 
-	"nekobox_core/happ"
+	happ "nekobox_core/happ"
 
 	"github.com/matsuridayo/libneko/neko_common"
 	boxmain "github.com/sagernet/sing-box/cmd/sing-box"
