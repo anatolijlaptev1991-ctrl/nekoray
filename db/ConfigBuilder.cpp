@@ -453,12 +453,7 @@ namespace NekoGui {
             {"type", "block"},
             {"tag", "block"},
         };
-        if (!status->forTest) {
-            status->outbounds += QJsonObject{
-                {"type", "dns"},
-                {"tag", "dns-out"},
-            };
-        }
+
 
         // custom inbound
         if (!status->forTest) QJSONARRAY_ADD(status->inbounds, QString2QJsonObject(dataStore->custom_inbound)["inbounds"].toArray())
@@ -472,29 +467,49 @@ namespace NekoGui {
             IP_USER_RULE
         }
 
+        // rule-set definitions (remote .srs from SagerNet), collected from all rules
+        QJsonArray ruleSetDefs;
+        auto addRuleSet = [&ruleSetDefs](const QString &kind, const QString &name) -> QString {
+            if (name.isEmpty()) return {};
+            auto rsTag = kind + "-" + name;
+            for (auto it = ruleSetDefs.begin(); it != ruleSetDefs.end(); ++it) {
+                if (it->toObject()["tag"].toString() == rsTag) return rsTag;
+            }
+            ruleSetDefs += QJsonObject{
+                {"tag", rsTag},
+                {"type", "remote"},
+                {"format", "binary"},
+                {"url", "https://raw.githubusercontent.com/SagerNet/sing-" + kind + "/rule-set/" + rsTag + ".srs"},
+                {"download_detour", "direct"},
+            };
+            return rsTag;
+        };
+
         // sing-box common rule object
         auto make_rule = [&](const QStringList &list, bool isIP = false) {
             QJsonObject rule;
             //
             QJsonArray ip_cidr;
-            QJsonArray geoip;
             //
             QJsonArray domain_keyword;
             QJsonArray domain_subdomain;
             QJsonArray domain_regexp;
             QJsonArray domain_full;
-            QJsonArray geosite;
             for (auto item: list) {
                 if (isIP) {
                     if (item.startsWith("geoip:")) {
-                        geoip += item.replace("geoip:", "");
+                        auto rs = rule["rule_set"].toArray();
+                        rs += addRuleSet("geoip", item.replace("geoip:", ""));
+                        rule["rule_set"] = rs;
                     } else {
                         ip_cidr += item;
                     }
                 } else {
                     // https://www.v2fly.org/config/dns.html#dnsobject
                     if (item.startsWith("geosite:")) {
-                        geosite += item.replace("geosite:", "");
+                        auto rs = rule["rule_set"].toArray();
+                        rs += addRuleSet("geosite", item.replace("geosite:", ""));
+                        rule["rule_set"] = rs;
                     } else if (item.startsWith("full:")) {
                         domain_full += item.replace("full:", "").toLower();
                     } else if (item.startsWith("domain:")) {
@@ -509,18 +524,16 @@ namespace NekoGui {
                 }
             }
             if (isIP) {
-                if (ip_cidr.isEmpty() && geoip.isEmpty()) return rule;
-                rule["ip_cidr"] = ip_cidr;
-                rule["geoip"] = geoip;
+                if (ip_cidr.isEmpty() && !rule.contains("rule_set")) return rule;
+                if (!ip_cidr.isEmpty()) rule["ip_cidr"] = ip_cidr;
             } else {
-                if (domain_keyword.isEmpty() && domain_subdomain.isEmpty() && domain_regexp.isEmpty() && domain_full.isEmpty() && geosite.isEmpty()) {
+                if (domain_keyword.isEmpty() && domain_subdomain.isEmpty() && domain_regexp.isEmpty() && domain_full.isEmpty() && !rule.contains("rule_set")) {
                     return rule;
                 }
-                rule["domain"] = domain_full;
-                rule["domain_suffix"] = domain_subdomain; // v2ray Subdomain => sing-box suffix
-                rule["domain_keyword"] = domain_keyword;
-                rule["domain_regex"] = domain_regexp;
-                rule["geosite"] = geosite;
+                if (!domain_full.isEmpty()) rule["domain"] = domain_full;
+                if (!domain_subdomain.isEmpty()) rule["domain_suffix"] = domain_subdomain; // v2ray Subdomain => sing-box suffix
+                if (!domain_keyword.isEmpty()) rule["domain_keyword"] = domain_keyword;
+                if (!domain_regexp.isEmpty()) rule["domain_regex"] = domain_regexp;
             }
             return rule;
         };
@@ -630,7 +643,7 @@ namespace NekoGui {
         if (!status->forTest) {
             status->routingRules += QJsonObject{
                 {"protocol", "dns"},
-                {"outbound", "dns-out"},
+                {"action", "hijack-dns"},
             };
         }
 
@@ -693,12 +706,6 @@ namespace NekoGui {
             }
         }
 
-        // geopath
-        auto geoip = FindCoreAsset("geoip.db");
-        auto geosite = FindCoreAsset("geosite.db");
-        if (geoip.isEmpty()) status->result->error = +"geoip.db not found";
-        if (geosite.isEmpty()) status->result->error = +"geosite.db not found";
-
         // final add routing rule
         auto routingRules = QString2QJsonObject(dataStore->routing->custom)["rules"].toArray();
         if (status->forTest) routingRules = {};
@@ -707,22 +714,15 @@ namespace NekoGui {
         auto routeObj = QJsonObject{
             {"rules", routingRules},
             {"auto_detect_interface", dataStore->spmode_vpn}, // TODO force enable?
-            {
-                "geoip",
-                QJsonObject{
-                    {"path", geoip},
-                },
-            },
-            {
-                "geosite",
-                QJsonObject{
-                    {"path", geosite},
-                },
-            }};
+        };
+        if (!ruleSetDefs.isEmpty()) routeObj["rule_set"] = ruleSetDefs;
+        // sing-box 1.12+: domain resolution for outbounds goes through a DNS server tag
+        QJsonObject defaultResolver{{"server", "dns-direct"}};
+        if (!dataStore->routing->outbound_domain_strategy.isEmpty())
+            defaultResolver["strategy"] = dataStore->routing->outbound_domain_strategy;
+        routeObj["default_domain_resolver"] = defaultResolver;
         if (!status->forTest) routeObj["final"] = dataStore->routing->def_outbound;
         if (status->forExport) {
-            routeObj.remove("geoip");
-            routeObj.remove("geosite");
             routeObj.remove("auto_detect_interface");
         }
         status->result->coreConfig.insert("route", routeObj);
