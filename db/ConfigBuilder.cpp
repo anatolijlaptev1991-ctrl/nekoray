@@ -470,7 +470,8 @@ namespace NekoGui {
                 {"tag", rsTag},
                 {"type", "remote"},
                 {"format", "binary"},
-                {"url", "https://raw.githubusercontent.com/SagerNet/sing-" + kind + "/rule-set/" + rsTag + ".srs"},
+                // MetaCubeX meta-rules-dat covers the full v2fly category set
+                {"url", "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/" + kind + "/" + name + ".srs"},
                 {"download_detour", "direct"},
             };
             return rsTag;
