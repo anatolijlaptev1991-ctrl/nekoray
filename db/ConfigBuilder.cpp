@@ -399,10 +399,6 @@ namespace NekoGui {
             inboundObj["type"] = "mixed";
             inboundObj["listen"] = dataStore->inbound_address;
             inboundObj["listen_port"] = dataStore->inbound_socks_port;
-            if (dataStore->routing->sniffing_mode != SniffingMode::DISABLE) {
-                inboundObj["sniff"] = true;
-                inboundObj["sniff_override_destination"] = dataStore->routing->sniffing_mode == SniffingMode::FOR_DESTINATION;
-            }
             if (dataStore->inbound_auth->NeedAuth()) {
                 inboundObj["users"] = QJsonArray{
                     QJsonObject{
@@ -411,7 +407,6 @@ namespace NekoGui {
                     },
                 };
             }
-            inboundObj["domain_strategy"] = dataStore->routing->domain_strategy;
             status->inbounds += inboundObj;
         }
 
@@ -426,13 +421,9 @@ namespace NekoGui {
             inboundObj["mtu"] = dataStore->vpn_mtu;
             inboundObj["stack"] = Preset::SingBox::VpnImplementation.value(dataStore->vpn_implementation);
             inboundObj["strict_route"] = dataStore->vpn_strict_route;
-            inboundObj["inet4_address"] = "172.19.0.1/28";
-            if (dataStore->vpn_ipv6) inboundObj["inet6_address"] = "fdfe:dcba:9876::1/126";
-            if (dataStore->routing->sniffing_mode != SniffingMode::DISABLE) {
-                inboundObj["sniff"] = true;
-                inboundObj["sniff_override_destination"] = dataStore->routing->sniffing_mode == SniffingMode::FOR_DESTINATION;
-            }
-            inboundObj["domain_strategy"] = dataStore->routing->domain_strategy;
+            QJsonArray tunAddress{"172.19.0.1/28"};
+            if (dataStore->vpn_ipv6) tunAddress += "fdfe:dcba:9876::1/126";
+            inboundObj["address"] = tunAddress;
             status->inbounds += inboundObj;
         }
 
@@ -710,6 +701,14 @@ namespace NekoGui {
         auto routingRules = QString2QJsonObject(dataStore->routing->custom)["rules"].toArray();
         if (status->forTest) routingRules = {};
         if (!status->forTest) QJSONARRAY_ADD(routingRules, QString2QJsonObject(dataStore->custom_route_global)["rules"].toArray())
+        // sniff moved from inbound fields (removed in sing-box 1.13) to a route action
+        if (dataStore->routing->sniffing_mode != SniffingMode::DISABLE) {
+            routingRules.prepend(QJsonObject{
+                {"action", "sniff"},
+                {"inbound", QJsonArray{"mixed-in", "tun-in"}},
+                {"timeout", "3s"},
+            });
+        }
         QJSONARRAY_ADD(routingRules, status->routingRules)
         auto routeObj = QJsonObject{
             {"rules", routingRules},
@@ -775,7 +774,7 @@ namespace NekoGui {
         auto configFn = ":/neko/vpn/sing-box-vpn.json";
         if (QFile::exists("vpn/sing-box-vpn.json")) configFn = "vpn/sing-box-vpn.json";
         auto config = ReadFileText(configFn)
-                          .replace("//%IPV6_ADDRESS%", dataStore->vpn_ipv6 ? R"("inet6_address": "fdfe:dcba:9876::1/126",)" : "")
+                          .replace("%TUN_ADDRESS%", dataStore->vpn_ipv6 ? R"(["172.19.0.1/28", "fdfe:dcba:9876::1/126"])" : R"(["172.19.0.1/28"])")
                           .replace("//%SOCKS_USER_PASS%", socks_user_pass)
                           .replace("//%PROCESS_NAME_RULE%", process_name_rule)
                           .replace("//%CIDR_RULE%", cidr_rule)
