@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feature/happ-decryptor
+      - feature/singbox-upgrade
     paths-ignore:
       - "**.md"
 
