@@ -3,29 +3,27 @@
         "level": "info"
     },
     "dns": {
-        "fakeip": {
-            "enabled": true,
-            "inet4_range": "198.18.0.0/15",
-            "inet6_range": "fc00::/18"
-        },
         "servers": [
             {
                 "tag": "dns-remote",
-                "address": "8.8.8.8",
+                "type": "udp",
+                "server": "8.8.8.8",
                 "detour": "neko-socks"
             },
             {
                 "tag": "dns-direct",
-                "address": "%DNS_ADDRESS%",
-                "detour": "direct"
+                "type": "udp",
+                "server": "%DNS_ADDRESS%"
             },
             {
-                "address": "fakeip",
-                "tag": "dns-fake"
+                "tag": "dns-fake",
+                "type": "fakeip",
+                "inet4_range": "198.18.0.0/15",
+                "inet6_range": "fc00::/18"
             },
             {
-                "address": "rcode://success",
-                "tag": "dns-block"
+                "tag": "dns-local",
+                "type": "local"
             }
         ],
         "rules": [
@@ -34,13 +32,15 @@
                     32,
                     33
                 ],
-                "server": "dns-block"
+                "action": "predefined",
+                "rcode": 0
             },
             {
                 "domain_suffix": [
                     ".lan"
                 ],
-                "server": "dns-block"
+                "action": "predefined",
+                "rcode": 0
             },
             {
                 "process_name": [
@@ -49,10 +49,12 @@
                     "nekobox_core",
                     "nekobox_core.exe"
                 ],
+                "action": "route",
                 "server": "dns-direct"
             },
             {
                 "inbound": "%FAKE_DNS_INBOUND%",
+                "action": "route",
                 "server": "dns-fake"
             }
         ]

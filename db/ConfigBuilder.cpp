@@ -530,85 +530,111 @@ namespace NekoGui {
             return rule;
         };
 
-        // final add DNS
+        // final add DNS (sing-box 1.12+ typed server format; the legacy
+        // "address"-based format was removed in sing-box 1.14)
         QJsonObject dns;
         QJsonArray dnsServers;
         QJsonArray dnsRules;
 
+        // legacy "address" string -> typed DNS server object
+        auto makeDnsServer = [&](const QString &tag, const QString &address, const QString &detour, bool useResolver) {
+            QJsonObject o{{"tag", tag}};
+            if (address == "local") {
+                o["type"] = "local";
+                if (!detour.isEmpty()) o["detour"] = detour;
+                return o;
+            }
+            if (address == "fakeip") {
+                o["type"] = "fakeip";
+                o["inet4_range"] = "198.18.0.0/15";
+                o["inet6_range"] = "fc00::/18";
+                return o;
+            }
+            QString type = "udp";
+            QString server = address;
+            int serverPort = 0;
+            auto schemeEnd = server.indexOf("://");
+            if (schemeEnd > 0) {
+                auto scheme = server.left(schemeEnd).toLower();
+                server = server.mid(schemeEnd + 3);
+                if (scheme == "tls") type = "tls";
+                else if (scheme == "https") type = "https";
+                else if (scheme == "h3") type = "h3";
+                else if (scheme == "quic") type = "quic";
+                else if (scheme == "tcp") type = "tcp";
+                else if (scheme == "dhcp") type = "dhcp";
+            }
+            auto slash = server.indexOf('/');
+            if (slash >= 0) {
+                if (type == "https" || type == "h3") o["path"] = server.mid(slash);
+                server = server.left(slash);
+            }
+            if (server.startsWith("[")) { // [ipv6]:port
+                auto close = server.indexOf(']');
+                if (close >= 0) {
+                    auto rest = server.mid(close + 1);
+                    if (rest.startsWith(":")) serverPort = rest.mid(1).toInt();
+                    server = server.mid(1, close - 1);
+                }
+            } else {
+                auto colon = server.lastIndexOf(':');
+                if (colon > 0) {
+                    auto ps = server.mid(colon + 1);
+                    bool ok = false;
+                    int pv = ps.toInt(&ok);
+                    if (ok && pv > 0) {
+                        serverPort = pv;
+                        server = server.left(colon);
+                    }
+                }
+            }
+            o["type"] = type;
+            o["server"] = server;
+            if (serverPort > 0) o["server_port"] = serverPort;
+            // detouring to an empty direct outbound is a hard error in sing-box 1.14
+            if (!detour.isEmpty() && detour != "direct") o["detour"] = detour;
+            if (useResolver) o["domain_resolver"] = "dns-local";
+            return o;
+        };
+
         // Remote
         if (!status->forTest)
-            dnsServers += QJsonObject{
-                {"tag", "dns-remote"},
-                {"address_resolver", "dns-local"},
-                {"strategy", dataStore->routing->remote_dns_strategy},
-                {"address", dataStore->routing->remote_dns},
-                {"detour", tagProxy},
-            };
+            dnsServers += makeDnsServer("dns-remote", dataStore->routing->remote_dns, tagProxy, true);
 
         // Direct
-        QJsonObject directObj{
-            {"tag", "dns-direct"},
-            {"address_resolver", "dns-local"},
-            {"strategy", dataStore->routing->direct_dns_strategy},
-            {"address", dataStore->routing->direct_dns},
-            {"detour", "direct"},
-        };
-        if (dataStore->routing->dns_final_out == "bypass") {
-            dnsServers.prepend(directObj);
-        } else {
-            dnsServers.append(directObj);
-        }
-        dnsRules.append(QJsonObject{
-            {"outbound", "any"},
-            {"server", "dns-direct"},
-        });
+        // (outbound domain queries are resolved via route.default_domain_resolver)
+        dnsServers += makeDnsServer("dns-direct", dataStore->routing->direct_dns, "", true);
 
-        // block
-        if (!status->forTest)
-            dnsServers += QJsonObject{
-                {"tag", "dns-block"},
-                {"address", "rcode://success"},
-            };
-
-        // Fakedns
+        // FakeDNS
         if (dataStore->fake_dns && dataStore->vpn_internal_tun && dataStore->spmode_vpn && !status->forTest) {
-            dnsServers += QJsonObject{
-                {"tag", "dns-fake"},
-                {"address", "fakeip"},
-            };
-            dns["fakeip"] = QJsonObject{
-                {"enabled", true},
-                {"inet4_range", "198.18.0.0/15"},
-                {"inet6_range", "fc00::/18"},
-            };
+            dnsServers += makeDnsServer("dns-fake", "fakeip", "", false);
         }
 
         // Underlying 100% Working DNS ?
-        dnsServers += QJsonObject{
-            {"tag", "dns-local"},
-            {"address", BOX_UNDERLYING_DNS},
-            {"detour", "direct"},
-        };
+        dnsServers += makeDnsServer("dns-local", BOX_UNDERLYING_DNS, "", false);
 
         // sing-box dns rule object
         auto add_rule_dns = [&](const QStringList &list, const QString &server) {
             auto rule = make_rule(list, false);
             if (rule.isEmpty()) return;
+            rule["action"] = "route";
             rule["server"] = server;
             dnsRules += rule;
         };
         add_rule_dns(status->domainListDNSRemote, "dns-remote");
         add_rule_dns(status->domainListDNSDirect, "dns-direct");
 
-        // built-in rules
+        // built-in rules (legacy rcode://success blocking -> predefined NOERROR)
         if (!status->forTest) {
             dnsRules += QJsonObject{
                 {"query_type", QJsonArray{32, 33}},
-                {"server", "dns-block"},
+                {"action", "predefined"},
+                {"rcode", 0},
             };
             dnsRules += QJsonObject{
                 {"domain_suffix", ".lan"},
-                {"server", "dns-block"},
+                {"action", "predefined"},
+                {"rcode", 0},
             };
         }
 
@@ -616,13 +642,15 @@ namespace NekoGui {
         if (dataStore->fake_dns && dataStore->vpn_internal_tun && dataStore->spmode_vpn && !status->forTest) {
             dnsRules += QJsonObject{
                 {"inbound", "tun-in"},
+                {"action", "route"},
                 {"server", "dns-fake"},
             };
         }
 
         dns["servers"] = dnsServers;
         dns["rules"] = dnsRules;
-        dns["independent_cache"] = true;
+        if (!dataStore->routing->remote_dns_strategy.isEmpty())
+            dns["strategy"] = dataStore->routing->remote_dns_strategy;
 
         if (dataStore->routing->use_dns_object) {
             dns = QString2QJsonObject(dataStore->routing->dns_object);
