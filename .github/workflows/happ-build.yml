@@ -27,8 +27,8 @@ jobs:
       - name: Install Golang
         uses: actions/setup-go@v5
         with:
-          # pinned: sing (linkname of net.errNoSuchInterface) breaks on Go >= 1.24
-          go-version: "1.22.12"
+          # Go 1.24.7 required by sing-box 1.13
+          go-version: "1.24.7"
 
       - name: Install ninja-build tool
         uses: seanmiddleditch/gha-setup-ninja@v3

@@ -24,6 +24,9 @@ type server struct {
 	grpc_server.BaseServer
 }
 
+// statsService is attached to the running instance at Start and used by QueryStats.
+var statsService *boxapi.StatsService
+
 func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.ErrorResp, _ error) {
 	var err error
 
@@ -49,12 +52,13 @@ func (s *server) Start(ctx context.Context, in *gen.LoadConfigReq) (out *gen.Err
 	if instance != nil {
 		// Logger
 		instance.SetLogWritter(neko_log.LogWriter)
-		// V2ray Service
-		if in.StatsOutbounds != nil {
-			instance.Router().SetV2RayServer(boxapi.NewSbV2rayServer(option.V2RayStatsServiceOptions{
+		// V2ray stats tracker
+		if len(in.StatsOutbounds) > 0 {
+			statsService = boxapi.NewStatsService(option.V2RayStatsServiceOptions{
 				Enabled:   true,
 				Outbounds: in.StatsOutbounds,
-			}))
+			})
+			instance.Router().AppendTracker(statsService)
 		}
 	}
 
@@ -79,6 +83,7 @@ func (s *server) Stop(ctx context.Context, in *gen.EmptyReq) (out *gen.ErrorResp
 	instance.Close()
 
 	instance = nil
+	statsService = nil
 
 	return
 }
@@ -136,9 +141,7 @@ func (s *server) QueryStats(ctx context.Context, in *gen.QueryStatsReq) (out *ge
 	out = &gen.QueryStatsResp{}
 
 	if instance != nil {
-		if ss, ok := instance.Router().V2RayServer().(*boxapi.SbV2rayServer); ok {
-			out.Traffic = ss.QueryStats(fmt.Sprintf("outbound>>>%s>>>traffic>>>%s", in.Tag, in.Direct))
-		}
+		out.Traffic = boxapi.QueryStats(statsService, fmt.Sprintf("outbound>>>%s>>>traffic>>>%s", in.Tag, in.Direct))
 	}
 
 	return
