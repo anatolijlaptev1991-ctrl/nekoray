@@ -28,4 +28,14 @@ popd
 
 ####
 
+if [ ! -d "net" ]; then
+  git clone --no-checkout https://github.com/anatolijlaptev1991-ctrl/net.git
+fi
+pushd net
+git checkout "$COMMIT_NET"
+
+popd
+
+####
+
 popd

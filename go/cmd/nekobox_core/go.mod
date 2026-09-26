@@ -198,6 +198,9 @@ replace grpc_server => ../../grpc_server
 
 replace github.com/matsuridayo/libneko => ../../../../libneko
 
+# Local x/net with http2 reader-originated StreamError fix (golang/go#80567, CL 807440 port)
+replace golang.org/x/net => ../../../../net
+
 replace github.com/sagernet/sing-box => ../../../../sing-box
 
 // replace github.com/sagernet/sing => ../../../../sing
